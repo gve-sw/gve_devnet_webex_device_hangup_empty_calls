@@ -18,6 +18,12 @@ const HANGUP_TIMER = 30000 // How long to wait for no people to be detected (in 
 let newHangupTimer = null;
 var numCalls=0;
 
+/*
+usePeopleCount Flag: controls whether PeopleSense or PeopleCount should be used. PeopleCount is faster, but relies on head tracking (camera enabled).
+PeopleSense uses HeadTracking and Ultrasound (works on audio only calls), but requires an average of 2 minutes to detect no one is in the room.
+*/
+const usePeopleCount=false;
+
 function startHangupTimer() {
   newHangupTimer = setTimeout(onHangupTimerExpired, HANGUP_TIMER);
 }
@@ -36,6 +42,7 @@ function restartHangupTimer() {
 async function onHangupTimerExpired() {
   // Fail Safe Check to make sure an Active Call with someone present is disconnected
   let peopleThere=await xapi.Status.RoomAnalytics.PeopleCount.Current.get()
+  console.log(`Number of People Detected: ${peopleThere}`)
 
   if (peopleThere<1) {
     console.log('Disconnecting Active Call!')
@@ -44,18 +51,34 @@ async function onHangupTimerExpired() {
 }
 
 async function init() {
+    numCalls = await xapi.Status.SystemUnit.State.NumberOfActiveCalls.get()
+    console.log(`Started with ${numCalls} calls.`)
 
-numCalls = await xapi.Status.SystemUnit.State.NumberOfActiveCalls.get()
-console.log(`Started with ${numCalls} calls.`)
+    let isPeople=await xapi.Status.RoomAnalytics.PeoplePresence.get()
+    console.log(`PeoplePresence ${isPeople}`)
 
-  // Handler for responding to people coming/going from room
-  xapi.Status.RoomAnalytics.PeopleCount.Current
-      .on(value => {
+    // If usePeopleCount is True, assume camera is on, use PeopleCount head tracking to determine presence
+    if (usePeopleCount) {
+      xapi.Config.RoomAnalytics.PeopleCountOutOfCall.set('On');
+      xapi.Config.RoomAnalytics.PeoplePresence.Input.HeadDetector.set('On');
+      xapi.Status.RoomAnalytics.PeopleCount.Current.on(value => {
         console.log(`Peoplecount: ${value}`)
         if (value<1 && numCalls>0) {
-          restartHangupTimer();
-        }
+            restartHangupTimer();
+        } else {
+            stopHangupTimer()}
       });
+    // usePeopleCount is false, rely on ultrasound, assume camera is off (or audio only call)
+    } else {
+      xapi.Config.RoomAnalytics.PeopleCountOutOfCall.set('Off');
+      xapi.Config.RoomAnalytics.PeoplePresence.Input.Ultrasound.set('On');
+      xapi.Status.RoomAnalytics.PeoplePresence.on(value => {
+        console.log(`PeoplePresence: ${value}`)
+        if (value=='No' && numCalls>0) {
+          restartHangupTimer();
+        } else {stopHangupTimer()}
+      });
+    }
 
   // Handler for responding to starting and stopping calls
   xapi.Status.SystemUnit.State.NumberOfActiveCalls
@@ -64,11 +87,16 @@ console.log(`Started with ${numCalls} calls.`)
         numCalls=value;
         if (numCalls>0)
           {
-            // Check if someone is originally there when a call starts, otherwise start countdown timer
-            let peopleThere=await xapi.Status.RoomAnalytics.PeopleCount.Current.get()
-            if (peopleThere<1) restartHangupTimer();
+            // Check if someone is originally there when a call starts (either with PeopleCount or PeoplePresence), otherwise start countdown timer
+            if (usePeopleCount) {
+              let peopleThere=await xapi.Status.RoomAnalytics.PeopleCount.Current.get()
+              if (peopleThere<1) restartHangupTimer();
+            }
+            else {
+              let peoplePresent = await xapi.Status.RoomAnalytics.PeoplePresence.get();
+              if (peoplePresent=='No') restartHangupTimer();
+            }
           }
-
         }
       );
 }

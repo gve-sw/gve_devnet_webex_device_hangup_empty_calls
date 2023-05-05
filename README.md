@@ -3,6 +3,7 @@
 This macro monitors the number of people present in a room during an active call. If the number drops to 0 for a certain duration (an 'Empty Call'), the call is ended.
 
 ## Contacts
+* Gerardo Chaves
 * Trevor Maco
 
 ## Solution Components
