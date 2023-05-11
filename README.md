@@ -1,6 +1,8 @@
 # Hang Up Empty Calls for Webex Devices
 
-This macro monitors the number of people present in a room during an active call. If the number drops to 0 for a certain duration (an 'Empty Call'), the call is ended.
+This macro monitors the number of people present in a room during an active call. If the number drops to 0 for a certain duration (an 'Empty Call'), the call is ended. This is the default behavior.
+
+The macro also supports daily hang up of calls at a specified time. See `ScheduleTime` parameter for more information.
 
 ## Contacts
 * Gerardo Chaves
@@ -10,6 +12,10 @@ This macro monitors the number of people present in a room during an active call
 * Webex Devices
 * xAPI
 * Javascript
+
+## Requirements
+* Devices must be running RoomOS 11 or later (for realtime people detection)
+* Supported Devices: Room, Board, Desk Series
 
 ## Prerequisites
 - **UI Extension Editor**: To create and activate custom panels, you can use the UI Extension Editor. You need a local Admin user on the device to create UI Extensions together with macros and the xAPI. Follow these instructions to launch the UI Extension Editor:
@@ -22,11 +28,16 @@ also in [this guide](https://www.cisco.com/c/dam/en/us/td/docs/telepresence/endp
 
 ## Installation/Configuration
 1. Load the Javascript code included in the `HangUpEmptyCalls.js` file in this repository into a new Macro in the Macro editor of the Cisco Webex device you wish to use.
-2. Before activating the macro, set the `HANGUP_TIMER` constant in the code on your device:
+2. Before activating the macro, set the `hangUpTimer` constant in the code on your device for real time people detection:
 ```
-const HANGUP_TIMER = 30000 // How long to wait for no people to be detected (in milliseconds)
+const hangUpTimer = 900000 // If no one is detected on a call for 15 minutes (900000 ms), hang up the call for ex.
 ```
-3. Activate the macro
+3. If scheduled hang up functionality is desired, set the `scheduleTime` constant in the code to a 24-hour HH:MM timestamp:
+```
+const scheduleTime = 02:00 // Hang up at 2 AM daily for ex.
+```
+* Note: Leave this value as blank if using real time people detection
+4. Activate the macro
 
 > If you are unfamiliar with Cisco Room device macros, [this](https://help.webex.com/en-us/np8b6m6/Use-of-Macros-with-Room-and-Desk-Devices-and-Webex-Boards) is a good article to get started.
 
